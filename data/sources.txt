@@ -1,0 +1,16 @@
+Small Graphs(1-10,000 vertices):
+    https://snap.stanford.edu/data/twitch-social-networks.html (contains 6 small graphs)
+
+Medium Graphs(10,000-100,000 vertices):
+    https://snap.stanford.edu/data/gemsec-Deezer.html (contains 3 medium graphs)
+
+Large Graphs(100,000-1,000,000 vertices):
+    https://snap.stanford.edu/data/twitch_gamers.html (contains 1 large graph)
+    https://snap.stanford.edu/data/loc-Gowalla.html (contains 1 large graph)
+
+Very Large Graphs(1,000,000-10,000,000 vertices):
+    https://snap.stanford.edu/data/com-Youtube.html (contains 1 very large graph)
+    https://snap.stanford.edu/data/com-LiveJournal.html (contains 1 very large graph)
+
+Extremely Large Graphs(10,000,000+ vertices):
+    
