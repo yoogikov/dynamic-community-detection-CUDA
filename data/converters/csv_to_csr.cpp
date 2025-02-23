@@ -21,7 +21,7 @@ int main(int argc, char* argv[]){
         getline(str, s2, ',');
         if(getline(str, s3, ','))hasWeight = true;
         
-        bool isEdge = true;
+        bool isEdge = s1.size()>0 and isdigit(s1[0]);
         // Checking if the string represents an integer or not
         for(auto c:s1){
             if(!isdigit(c)){isEdge=false;break;}
