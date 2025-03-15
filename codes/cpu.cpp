@@ -1,4 +1,5 @@
 #include "graph.cpp"
+#include <map>
 #include <set>
 #include <vector>
 
@@ -90,6 +91,8 @@ double optimize(graph * G, std::vector<int> &colour, std::vector<int> &tot_degre
             int s_col = colour[i];
             int d_col = colour[G->edges[j]];
 
+            //std::cout << s_col << " " << d_col << std::endl;
+
             int wa=col_degrees[s_col];
             int wb=col_degrees[d_col];
 
@@ -122,29 +125,168 @@ double moving_phase(graph * G, std::vector<int> &colour, std::vector<int> &tot_d
         delta+=d;
         std::set<int> col;
         for(auto i:colour)col.insert(i);
-        std::cout << col.size() << std::endl;
+        //std::cout << col.size() << std::endl;
     }
     return delta;
 }
 
 
+graph* aggregate_phase(graph*G, std::vector<int> &colour, std::vector<int> &tot_degree, std::vector<int> &degree){
+    
+    std::vector<int> renumber(G->n_v, -1);
+
+    int new_col = 0;
+    for(int i=0;i<G->n_v;i++){
+        if(renumber[colour[i]]!=-1)continue;
+        renumber[colour[i]]=new_col++;
+    }
+    
+    std::vector<std::vector<std::pair<int, int>>> new_adlist(new_col);
+    for(int i=0;i<G->n_v;i++){
+        for(int j=G->offset[i];j<G->offset[i+1];j++){
+            int src = i;
+            int end = G->edges[j];
+            int weight = G->weights[j];
+            new_adlist[renumber[colour[src]]].push_back(std::make_pair(renumber[colour[end]], weight));
+        }
+    }
+
+
+    std::vector<std::vector<std::pair<int, int>>> compressed_adlist(new_col);
+    for(int comm=0;comm<new_col;comm++){
+        std::map<int, int> count;
+        for(int i=0;i<new_adlist[comm].size();i++){
+            count[new_adlist[comm][i].first] += new_adlist[comm][i].second;
+        }
+        for(auto p:count){
+            compressed_adlist[comm].push_back(p);
+        }
+    }
+
+    graph * G_ = convert(compressed_adlist);
+    return G_;
+
+    
+}
+
+double w_degree(graph * G, int n){
+    double d = 0;
+    for(int i=G->offset[n];i<G->offset[n+1];i++)d += G->weights[i];
+    return d;
+}
+
+double tot_degree(graph * G, std::vector<int> &colour, int col){
+    double d = 0;
+    for(int i=0;i<G->n_v;i++){
+        if(colour[i]==col)d+=w_degree(G, i);
+    }
+    return d;
+}
+
+double comp_weight(graph * G, std::vector<int> &colour, int n, int col){
+    double d = 0;
+    for(int i=G->offset[n];i<G->offset[n+1];i++)if(colour[G->edges[i]]==col)d+=G->weights[i];
+    return d;
+}
+
+bool one_level(graph * G, std::vector<int> &colour, std::vector<int> &tot_degrees, std::vector<int> &degrees){
+    //missing randomization
+
+    double new_mod = modularity(G, colour);
+    //std::cout << "Modularity is " << new_mod << std::endl;
+    double cur_mod = new_mod;
+    bool improvement = false;
+    int moves = 0;
+    do {
+        double cur_mod = new_mod;
+        moves = 0;
+        for(int src = 0;src<G->n_v;src++){
+            int node = src;
+            int node_comm = colour[node];
+            double w_deg = w_degree(G, node);
+
+            colour[node] = -1;
+
+            int best_comm = node_comm;
+            double best_increase = -1e9;
+            int neigh_col = best_comm;
+
+            unsigned int i = G->offset[node];
+            do{
+                
+                double totc = tot_degree(G, colour, neigh_col);
+                double dnc = comp_weight(G, colour, node, neigh_col);
+                double degc = w_deg;
+                double m2 = 2 * (double)G->m;
+
+
+
+                //std::cout << totc << " " << degc << " " << m2 << " " << dnc << std::endl;
+                double increase = dnc - totc*degc/m2;
+
+                //std::cout << node << " " << neigh_col << " " << increase << std::endl;
+                if(increase>best_increase){
+                    best_comm = neigh_col;
+                    best_increase = increase;
+                }
+
+                if(i==G->offset[node+1])break;
+                neigh_col = colour[G->edges[i]];
+                if(neigh_col==-1)neigh_col=node_comm;
+
+                i++;
+
+            }while(i<=G->offset[node+1]);
+
+            //std::cout << node << " " << best_comm << std::endl;
+
+            colour[node] = best_comm;
+            
+            if(best_comm!=node_comm)moves++;
+            if(moves>0)improvement=true;
+            
+            
+        }
+    } while(moves>0);
+    return improvement;
+}
 
 
 
 int main(int argc, char *argv[]){
     graph * G = input(argv[1]);
+    std::vector<int> colouring(G->n_v);
+    for(int i=0;i<G->n_v;i++)colouring[i] = i;  
 //  G->display();
-    std::vector<int> colour(G->n_v);
-    std::vector<int> tot_degree(G->n_v);
-    std::vector<int> degree(G->n_v);
+    for(int i=0;i<5;i++){
+        std::vector<int> colour(G->n_v);
+        std::vector<int> tot_degree(G->n_v);
+        std::vector<int> degree(G->n_v);
 
 
-    initialize(G, colour, tot_degree, degree);
+        initialize(G, colour, tot_degree, degree);
 
-    std::cout << G->n_v << std::endl;
+        for(int i=0;i<G->n_v;i++)colour[i]=i; 
+        //double moving_phase_delta = moving_phase(G, colour, tot_degree, degree);    
+        one_level(G, colour, tot_degree, degree);
+        //for(int i=0;i<G->n_v;i++)std::cout << i << " " << colour[i] << std::endl; 
 
-    double moving_phase_delta = moving_phase(G, colour, tot_degree, degree);    
-    
+        graph* G_ = aggregate_phase(G, colour, tot_degree, degree);
+
+        //G_->display();
+
+        G = G_;
+
+        G->getm();
+
+        std::cout << modularity(G, colour) << std::endl;
+
+        std::cout << "--------------" << std::endl;
+    }
+
+
+
+//    G_->display();
 
 
 }
