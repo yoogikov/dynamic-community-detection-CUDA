@@ -206,6 +206,7 @@ bool one_level(graph * G, std::vector<int> &colour, std::vector<int> &tot_degree
             double w_deg = w_degree(G, node);
 
             colour[node] = -1;
+            tot_degrees[node_comm] -= w_deg;
 
             int best_comm = node_comm;
             double best_increase = -1e9;
@@ -214,7 +215,7 @@ bool one_level(graph * G, std::vector<int> &colour, std::vector<int> &tot_degree
             unsigned int i = G->offset[node];
             do{
                 
-                double totc = tot_degree(G, colour, neigh_col);
+                double totc = tot_degrees[neigh_col];
                 double dnc = comp_weight(G, colour, node, neigh_col);
                 double degc = w_deg;
                 double m2 = 2 * (double)G->m;
@@ -241,6 +242,7 @@ bool one_level(graph * G, std::vector<int> &colour, std::vector<int> &tot_degree
             //std::cout << node << " " << best_comm << std::endl;
 
             colour[node] = best_comm;
+            tot_degrees[colour[node]]+=w_deg;
             
             if(best_comm!=node_comm)moves++;
             if(moves>0)improvement=true;
@@ -276,6 +278,7 @@ int main(int argc, char *argv[]){
         //G_->display();
 
         G = G_;
+        G->display();
 
         G->getm();
 
