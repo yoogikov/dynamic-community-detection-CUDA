@@ -15,14 +15,25 @@ public:
     CUDA_ int * offset;
     CUDA_ int * edges;
     CUDA_ int * weights;
+    CUDA_ int * community;
+    CUDA_ int * in;
+    CUDA_ int * tot;
+    CUDA_ int * self_loops;
+    CUDA_ bool weighted;
     CUDA_ void display(){
         std::cout <<n_v << " " << n_e << " " << m << std::endl;
         for(int i=0;i<n_v+1;i++)std::cout << offset[i] << " ";std::cout << std::endl;
         for(int i=0;i<n_e;i++)std::cout << edges[i] << " ";std::cout << std::endl;
         for(int i=0;i<n_e;i++)std::cout << weights[i] << " ";std::cout << std::endl;
+        /*for(int i=0;i<n_v;i++)std::cout << community[i] << " ";std::cout << std::endl;*/
+        /*for(int i=0;i<n_v;i++)std::cout << in[i] << " ";std::cout << std::endl;*/
+        /*for(int i=0;i<n_v;i++)std::cout << tot[i] << " ";std::cout << std::endl;*/
+        /*for(int i=0;i<n_v;i++)std::cout << self_loops[i] << " ";std::cout << std::endl;*/
 
     }
     CUDA_ void initialize(int n_v, int n_e){
+        weighted = false;
+
         this->n_v = n_v;
         this->n_e = n_e;
         m = 0;
@@ -30,6 +41,10 @@ public:
         offset[0]=0;
         edges = (int*)malloc(sizeof(int)*n_e);
         weights = (int*)malloc(sizeof(int)*n_e);
+        community = (int*)malloc(sizeof(int)*n_v);
+        in = (int*)malloc(sizeof(int)*n_v);
+        tot = (int*)malloc(sizeof(int)*n_v);
+        self_loops = (int*)malloc(sizeof(int)*n_v);
     }
 
     CUDA_ void getm(){
@@ -41,7 +56,6 @@ public:
         }
         m/=2;
 
-        std::cout << "M found to be " << m << std::endl; 
 
     }
 };
@@ -77,31 +91,61 @@ struct graph * input(char * inp){
             if(i<=G->edges[j])G->m+=G->weights[j];
         }
     }
-    
+
+    for(int i=0;i<G->n_v;i++){
+        G->community[i] = i;
+        G->tot[i] = 0;
+        G->in[i] = 0;
+        for(int j=G->offset[i];j<G->offset[i+1];j++){
+            G->tot[i] += G->weights[j];
+            if(G->edges[j]==i)G->in[i] += G->weights[j];
+        }
+        G->self_loops[i] = G->in[i];
+    }
 
     return G;
 };
 
 struct graph * convert(std::vector<std::vector<std::pair<int, int>>> &adlist){
     graph * G = new graph();
-    int n_v = adlist.size();
-    int n_e = 0;
-    for(int i=0;i<n_v;i++){
-        n_e += adlist[i].size();
+
+
+    int number_of_edges = 0;
+    for(int i=0;i<adlist.size();i++){
+        number_of_edges += adlist[i].size();
     }
 
-    G->initialize(n_v, n_e);
-        
-    int offset = 0;
-    G->offset[0] = offset;
+    G->n_v = adlist.size();
+    G->n_e = number_of_edges;
+    G->m = 0;
+    G->offset = (int*)malloc(sizeof(int)*(G->n_v+1));
+    G->offset[0]=0;
+
+    int n_v = G->n_v;
+
+    G->edges = (int*)malloc(sizeof(int)*G->n_e);
+    G->weights = (int*)malloc(sizeof(int)*G->n_e);
+    G->community = (int*)malloc(sizeof(int)*G->n_v);
+    G->in = (int*)malloc(sizeof(int)*n_v);
+    G->tot = (int*)malloc(sizeof(int)*n_v);
+    G->self_loops = (int*)malloc(sizeof(int)*n_v);
+
+    int off = 0;
     for(int i=0;i<n_v;i++){
-        for(int j=0;j<adlist[i].size();j++){
-            G->edges[offset] = adlist[i][j].first;
-            G->weights[offset++] = adlist[i][j].second;
+        G->community[i] = i;
+        G->self_loops[i] = 0;
+        G->in[i] = 0;
+        G->tot[i] = 0;
+        for(std::pair<int, int> p:adlist[i]){
+            G->edges[off] = p.first;
+            G->weights[off] = p.second;
+            G->tot[i]+=p.second;
+            if(p.first==i)G->in[i]+=p.second;
+            if(p.first==i)G->self_loops[i]+=p.second;
+            off++;
         }
-        G->offset[i+1] = offset;
+        G->offset[i+1]=off;
     }
-    G->getm();
-    //std::cout << G->m <<"yes"<< std::endl;
+    G->weighted=true;
     return G;
 }
